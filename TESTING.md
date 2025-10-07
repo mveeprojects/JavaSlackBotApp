@@ -6,7 +6,7 @@ This test suite provides comprehensive validation of the Slack Bot workflow with
 
 ## Testing Guide
 
-This document provides comprehensive testing strategies for the Java Slack Bot App, including unit tests, integration tests, contract tests, and end-to-end testing with Docker.
+Comprehensive testing documentation for the Java Slack Bot App, covering unit tests, integration tests, contract tests, performance tests, and end-to-end testing with Docker.
 
 ## 🧪 Test Structure
 
@@ -29,31 +29,38 @@ The application follows a comprehensive testing pyramid approach:
 ### Unit Tests (`src/test/java/org/mveeprojects/`)
 
 #### Service Tests
-- **`ExternalServiceClientTest`** - Tests config-driven API client
-- **`SlackServiceTest`** - Tests Slack integration
-- **`MarkdownRendererTest`** - Tests JSON to Markdown conversion
+- **`ExternalServiceClientTest`** - Tests config-driven API client with WireMock
+- **`SlackServiceTest`** - Tests Slack API integration with proper mocking
+- **`MarkdownRendererTest`** - Tests JSON to Markdown conversion accuracy
 
 #### Controller Tests
 - **`HealthControllerTest`** - Health endpoint testing
-- **`WorkflowControllerIntegrationTest`** - API endpoint testing
+- **`WorkflowControllerIntegrationTest`** - API endpoint testing with Spring Boot Test
 
 #### Configuration Tests
-- **`SlackConfigTest`** - Configuration binding validation
+- **`SlackConfigTest`** - Configuration binding validation with test properties
 
 ### Integration Tests (`src/test/java/org/mveeprojects/integration/`)
 
 - **`CompleteWorkflowAccuracyTest`** - End-to-end workflow testing
-- Tests the complete flow from API call to Slack message posting
+  - Tests complete flow: External API → JSON processing → Markdown rendering → Slack posting
+  - Validates exact markdown format output
+  - Uses WireMock for external API simulation
 
 ### Contract Tests (`src/test/java/org/mveeprojects/contract/`)
 
 - **`ExternalApiContractTest`** - Validates external API contracts
-- Ensures compatibility with real external services
+  - Tests various API response formats (REST, JSON:API, HAL, GraphQL)
+  - Validates content type handling
+  - Tests error response formats (RFC 7807 Problem Details)
 
 ### Performance Tests (`src/test/java/org/mveeprojects/performance/`)
 
 - **`PerformanceTest`** - Load and performance testing
-- Tests concurrent API calls and timeout handling
+  - Concurrent API call testing (10+ simultaneous requests)
+  - Large JSON processing performance
+  - Memory usage validation
+  - Response time benchmarking
 
 ### Security Tests (`src/test/java/org/mveeprojects/security/`)
 
@@ -129,7 +136,7 @@ curl -H "X-API-Key: test-key" \
 ### Specific Test Categories
 ```bash
 # Unit tests only
-./gradlew test --tests="*Test" --exclude-tasks="*IntegrationTest"
+./gradlew test --tests="*Test" --exclude="*IntegrationTest"
 
 # Integration tests only
 ./gradlew test --tests="*IntegrationTest"
@@ -139,6 +146,15 @@ curl -H "X-API-Key: test-key" \
 
 # Contract tests only
 ./gradlew test --tests="*ContractTest"
+
+# Security tests only
+./gradlew test --tests="*SecurityTest"
+
+# Edge case tests only
+./gradlew test --tests="*EdgeCaseTest"
+
+# Smoke tests only
+./gradlew test --tests="*SmokeTest"
 ```
 
 ### Test with Coverage
@@ -248,6 +264,26 @@ curl http://localhost:8080/api/workflow/services
 # Expected: JSON array with service configurations
 ```
 
+### 5. Slack Integration Testing
+```bash
+# Test Slack event handling
+curl -X POST http://localhost:8080/slack/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "url_verification",
+    "challenge": "test_challenge"
+  }'
+
+# Expected: Returns the challenge value
+
+# Test Slack commands
+curl -X POST http://localhost:8080/slack/commands \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "command=/ping"
+
+# Expected: 200 OK with pong response
+```
+
 ## 🚀 Continuous Integration Testing
 
 ### GitHub Actions Example
@@ -259,10 +295,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
+          distribution: 'temurin'
+      
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
       
       - name: Start test environment
         run: docker-compose up -d
@@ -270,11 +317,27 @@ jobs:
       - name: Wait for services
         run: sleep 30
       
-      - name: Run tests
-        run: ./gradlew test
+      - name: Run unit tests
+        run: ./gradlew test --tests="*Test" --exclude="*IntegrationTest"
       
       - name: Run integration tests
         run: ./gradlew test --tests="*IntegrationTest"
+      
+      - name: Run contract tests
+        run: ./gradlew test --tests="*ContractTest"
+      
+      - name: Run performance tests
+        run: ./gradlew test --tests="*PerformanceTest"
+      
+      - name: Generate test report
+        run: ./gradlew jacocoTestReport
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: build/reports/
       
       - name: Cleanup
         run: docker-compose down
@@ -288,7 +351,7 @@ jobs:
 ```json
 {
   "service": "Primary Data Service",
-  "timestamp": "2025-10-07 14:30:00",
+  "timestamp": "2025-10-07T14:30:00Z",
   "data": {
     "users": {
       "total": 1543,
@@ -299,7 +362,15 @@ jobs:
       "response_time": "125ms",
       "uptime": "99.8%",
       "requests_per_minute": 342
-    }
+    },
+    "status": "healthy",
+    "version": "1.2.3",
+    "environment": "production"
+  },
+  "metadata": {
+    "generated_by": "Primary API Mock",
+    "request_id": "12345-67890-abcdef",
+    "processing_time": "45ms"
   }
 }
 ```
@@ -308,40 +379,93 @@ jobs:
 ```json
 {
   "service": "Secondary Analytics Service",
+  "timestamp": "2025-10-07T14:30:00Z",
   "analytics": {
     "page_views": {
       "today": 15678,
-      "this_week": 98234
+      "this_week": 98234,
+      "this_month": 456789
     },
     "user_engagement": {
       "bounce_rate": "32.5%",
-      "session_duration": "4m 23s"
+      "session_duration": "4m 23s",
+      "pages_per_session": 3.2
+    },
+    "conversion_metrics": {
+      "conversion_rate": "2.8%",
+      "total_conversions": 87,
+      "revenue": "$12,450.00"
+    },
+    "traffic_sources": {
+      "organic": "45%",
+      "direct": "28%",
+      "social": "15%",
+      "paid": "12%"
     }
-  }
+  },
+  "alerts": [
+    {
+      "type": "info",
+      "message": "Traffic spike detected in organic search"
+    },
+    {
+      "type": "warning", 
+      "message": "Conversion rate below target for mobile users"
+    }
+  ]
 }
 ```
 
 ## 🛠️ Testing Tools and Utilities
 
-### Test Runner Script
-Use the included `test-runner.sh` script for comprehensive testing:
+### Available Testing Dependencies
 
-```bash
-# Run all test categories
-./test-runner.sh
+The project includes these testing libraries:
+- **JUnit 5** - Primary testing framework
+- **Mockito** - Mocking framework for unit tests
+- **Spring Boot Test** - Integration testing with Spring context
+- **WireMock** - HTTP service mocking
+- **Reactor Test** - Reactive stream testing
+- **Testcontainers** - Container-based integration testing (if needed)
 
-# Run specific test type
-./test-runner.sh --type=integration
+### Test Configuration
 
-# Run with Docker environment
-./test-runner.sh --docker
-```
+Tests use these configuration approaches:
+- **`@SpringBootTest`** - Full Spring context for integration tests
+- **`@WebMvcTest`** - Controller layer testing
+- **`@TestPropertySource`** - Override properties for tests
+- **`@MockBean`** - Mock Spring beans
+- **WireMock Server** - Mock external HTTP services
 
-### Custom Test Annotations
+### Writing New Tests
+
+When adding new tests, follow these patterns:
+
 ```java
-@ConfigDrivenTest  // Tests config-driven functionality
-@SlackIntegrationTest  // Tests Slack integration
-@ExternalApiTest  // Tests external API interactions
+// Unit Test Example
+@ExtendWith(MockitoExtension.class)
+class ServiceTest {
+    @Mock
+    private Dependency mockDependency;
+    
+    @Test
+    void testServiceBehavior() {
+        // Arrange, Act, Assert
+    }
+}
+
+// Integration Test Example
+@SpringBootTest
+@TestPropertySource(properties = {"slack.bot-token=test-token"})
+class IntegrationTest {
+    @Autowired
+    private Service service;
+    
+    @Test
+    void testIntegration() {
+        // Test with real Spring context
+    }
+}
 ```
 
 ## 🔧 Troubleshooting Tests
@@ -355,6 +479,7 @@ Use the included `test-runner.sh` script for comprehensive testing:
    
    # Check logs
    docker-compose logs primary-api-mock
+   docker-compose logs secondary-api-mock
    ```
 
 2. **Port conflicts**
@@ -364,11 +489,20 @@ Use the included `test-runner.sh` script for comprehensive testing:
    
    # Stop conflicting services
    docker-compose down
+   
+   # Kill processes using ports
+   kill -9 $(lsof -t -i:8080)
    ```
 
 3. **Test timeouts**
    - Increase timeout values in test configuration
    - Check network connectivity between containers
+   - Verify WireMock mappings are correct
+
+4. **Slack API mocking issues**
+   - Ensure `@MockBean` is used for SlackService in tests
+   - Verify proper RequestConfigurator mocking in SlackServiceTest
+   - Check that test properties include slack configuration
 
 ### Debug Mode Testing
 ```bash
@@ -377,6 +511,20 @@ Use the included `test-runner.sh` script for comprehensive testing:
 
 # Run specific test with verbose output
 ./gradlew test --tests="ExternalServiceClientTest" --info
+
+# Run with system properties
+./gradlew test -Dtest.debug=true
+```
+
+### Test Environment Variables
+
+For local testing, you can override environment variables:
+
+```bash
+# Run tests with custom configuration
+SLACK_BOT_TOKEN=test-token \
+EXTERNAL_SERVICE_PRIMARY_URL=http://localhost:8081/api/primary \
+./gradlew test
 ```
 
 ## 📈 Test Metrics and Reporting
@@ -390,13 +538,52 @@ Use the included `test-runner.sh` script for comprehensive testing:
 - **API Response Time**: <500ms per service
 - **Slack Message Posting**: <2s total workflow
 - **Concurrent Service Calls**: Support 10+ simultaneous requests
+- **JSON Processing**: Handle 1000+ item arrays within 5s
+- **Memory Usage**: <50MB increase during heavy processing
 
 ### Monitoring Test Results
 ```bash
-# Generate test report
+# Generate comprehensive test report
 ./gradlew test jacocoTestReport
 
-# View results
+# View HTML reports
 open build/reports/tests/test/index.html
 open build/reports/jacoco/test/html/index.html
+
+# Generate XML reports for CI
+./gradlew test jacocoTestReport --xml
+
+# Check test summary
+./gradlew test --continue | grep -E "(PASSED|FAILED|SKIPPED)"
 ```
+
+### Test Result Analysis
+
+After running tests, check these locations for detailed results:
+- `build/reports/tests/test/` - Test execution reports
+- `build/reports/jacoco/test/html/` - Code coverage reports  
+- `build/test-results/test/` - Raw test result XML files
+- Console output for immediate pass/fail status
+
+## 🎯 Best Practices
+
+### Test Organization
+- Keep test classes in the same package structure as source classes
+- Use descriptive test method names that explain the scenario
+- Group related tests using nested test classes (`@Nested`)
+
+### Test Data Management
+- Use test-specific configuration files when needed
+- Keep test data small and focused
+- Use builders or factories for complex test objects
+
+### Mock Usage
+- Mock external dependencies, not the class under test
+- Use `@MockBean` for Spring-managed dependencies
+- Verify mock interactions when behavior matters
+
+### Performance Testing
+- Run performance tests in isolation
+- Use realistic data sizes and scenarios
+- Set reasonable performance expectations
+- Monitor memory usage and resource consumption
