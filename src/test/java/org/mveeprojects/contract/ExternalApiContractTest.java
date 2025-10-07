@@ -6,8 +6,11 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mveeprojects.config.ExternalServiceConfig;
 import org.mveeprojects.service.ExternalServiceClient;
-import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,10 +30,19 @@ class ExternalApiContractTest {
         wireMockServer.start();
         WireMock.configureFor("localhost", 8086);
 
-        externalServiceClient = new ExternalServiceClient();
-        ReflectionTestUtils.setField(
-            externalServiceClient, "externalServiceUrl", "http://localhost:8086/api/data"
-        );
+        // Create mock ExternalServiceConfig
+        ExternalServiceConfig mockConfig = new ExternalServiceConfig();
+        ExternalServiceConfig.ServiceDefinition contractTestService = new ExternalServiceConfig.ServiceDefinition();
+        contractTestService.setName("contract-test-service");
+        contractTestService.setUrl("http://localhost:8086/api/data");
+        contractTestService.setDisplayName("Contract Test Service");
+        contractTestService.setTimeout(5000);
+        contractTestService.setRetryAttempts(1);
+        contractTestService.setHeaders(Map.of("Content-Type", "application/json"));
+
+        mockConfig.setServices(List.of(contractTestService));
+
+        externalServiceClient = new ExternalServiceClient(mockConfig);
     }
 
     @AfterEach
@@ -47,7 +59,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{}")));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.isObject());
     }
@@ -79,7 +91,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(standardResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.get("success").asBoolean());
         assertTrue(response.has("data"));
@@ -120,7 +132,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/vnd.api+json")
                         .withBody(jsonApiResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("data"));
         assertTrue(response.has("included"));
@@ -148,7 +160,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/hal+json")
                         .withBody(halResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("_links"));
         assertTrue(response.has("status"));
@@ -190,7 +202,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(graphqlResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("data"));
         assertTrue(response.get("data").has("user"));
@@ -226,7 +238,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(paginatedResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("data"));
         assertTrue(response.has("pagination"));
@@ -253,7 +265,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/problem+json")
                         .withBody(problemDetailsResponse)));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("error"));
         assertTrue(response.get("error").asBoolean());
@@ -279,7 +291,7 @@ class ExternalApiContractTest {
                             .withHeader("Content-Type", contentType)
                             .withBody(jsonResponse)));
 
-            JsonNode response = externalServiceClient.fetchData().block();
+            JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
             assertNotNull(response);
             assertEquals("success", response.get("status").asText());
 
@@ -297,7 +309,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"ok\":true}")));
 
-        JsonNode response = externalServiceClient.fetchData().block();
+        JsonNode response = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response);
         assertTrue(response.has("ok"));
 
@@ -317,7 +329,7 @@ class ExternalApiContractTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(mediumResponse.toString())));
 
-        JsonNode response2 = externalServiceClient.fetchData().block();
+        JsonNode response2 = externalServiceClient.fetchFromService("contract-test-service").block();
         assertNotNull(response2);
         assertTrue(response2.has("data"));
         assertTrue(response2.get("data").isArray());

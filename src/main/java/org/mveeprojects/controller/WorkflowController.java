@@ -1,6 +1,5 @@
 package org.mveeprojects.controller;
 
-import org.mveeprojects.config.ExternalServiceConfig;
 import org.mveeprojects.service.ExternalServiceClient;
 import org.mveeprojects.service.SlackWorkflowService;
 import org.springframework.http.ResponseEntity;
@@ -8,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/workflow")
@@ -108,14 +106,14 @@ public class WorkflowController {
     public ResponseEntity<Map<String, Object>> getConfiguredServices() {
         try {
             List<Map<String, Object>> services = externalServiceClient.getConfiguredServices().stream()
-                .map(service -> Map.of(
+                .map(service -> Map.<String, Object>of(
                     "name", service.getName(),
                     "displayName", service.getDisplayName() != null ? service.getDisplayName() : service.getName(),
                     "url", service.getUrl(),
                     "timeout", service.getTimeout(),
                     "retryAttempts", service.getRetryAttempts()
                 ))
-                .collect(Collectors.toList());
+                .toList();
 
             return ResponseEntity.ok(Map.of(
                 "services", services,

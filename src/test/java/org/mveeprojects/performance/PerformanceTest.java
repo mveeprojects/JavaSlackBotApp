@@ -7,15 +7,15 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mveeprojects.config.ExternalServiceConfig;
 import org.mveeprojects.service.ExternalServiceClient;
 import org.mveeprojects.service.MarkdownRenderer;
-import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -34,13 +34,21 @@ class PerformanceTest {
         wireMockServer.start();
         WireMock.configureFor("localhost", 8087);
 
-        externalServiceClient = new ExternalServiceClient();
+        // Create mock ExternalServiceConfig
+        ExternalServiceConfig mockConfig = new ExternalServiceConfig();
+        ExternalServiceConfig.ServiceDefinition perfTestService = new ExternalServiceConfig.ServiceDefinition();
+        perfTestService.setName("perf-test-service");
+        perfTestService.setUrl("http://localhost:8087/api/data");
+        perfTestService.setDisplayName("Performance Test Service");
+        perfTestService.setTimeout(5000);
+        perfTestService.setRetryAttempts(1);
+        perfTestService.setHeaders(Map.of("Content-Type", "application/json"));
+
+        mockConfig.setServices(List.of(perfTestService));
+
+        externalServiceClient = new ExternalServiceClient(mockConfig);
         markdownRenderer = new MarkdownRenderer();
         objectMapper = new ObjectMapper();
-
-        ReflectionTestUtils.setField(
-            externalServiceClient, "externalServiceUrl", "http://localhost:8087/api/data"
-        );
     }
 
     @AfterEach
@@ -66,9 +74,10 @@ class PerformanceTest {
                         .withBody(responseJson)
                         .withFixedDelay(100))); // 100ms delay
 
-        // Act - Make 10 concurrent requests
+        // Act - Make 10 concurrent requests using the new config-driven approach
+        @SuppressWarnings("unchecked")
         CompletableFuture<JsonNode>[] futures = IntStream.range(0, 10)
-                .mapToObj(i -> externalServiceClient.fetchData().toFuture())
+                .mapToObj(i -> externalServiceClient.fetchFromService("perf-test-service").toFuture())
                 .toArray(CompletableFuture[]::new);
 
         long startTime = System.currentTimeMillis();
@@ -174,11 +183,11 @@ class PerformanceTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(simpleJson)));
 
-        // Test response time under load
+        // Test response time under load using config-driven approach
         Flux<Long> responseTimes = Flux.range(0, 100)
                 .flatMap(i -> {
                     long start = System.currentTimeMillis();
-                    return externalServiceClient.fetchData()
+                    return externalServiceClient.fetchFromService("perf-test-service")
                             .map(response -> System.currentTimeMillis() - start);
                 });
 
@@ -202,11 +211,11 @@ class PerformanceTest {
         stubFor(get(urlEqualTo("/api/data"))
                 .willReturn(aResponse()
                         .withStatus(500)
-                        .withFixedDelay(5000))); // 5 second delay
+                        .withFixedDelay(5000))); // 5-second delay
 
         // Multiple rapid failures should be handled gracefully
         for (int i = 0; i < 5; i++) {
-            StepVerifier.create(externalServiceClient.fetchData())
+            StepVerifier.create(externalServiceClient.fetchFromService("perf-test-service"))
                     .expectNextMatches(response ->
                         response.has("error") && response.get("error").asBoolean())
                     .verifyComplete();

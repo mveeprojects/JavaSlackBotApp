@@ -1,18 +1,21 @@
 package org.mveeprojects.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mveeprojects.config.ExternalServiceConfig;
 import org.mveeprojects.service.ExternalServiceClient;
 import org.mveeprojects.service.MarkdownRenderer;
 import org.mveeprojects.service.SlackService;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.TestPropertySource;
+
+import java.util.List;
+import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,11 +27,10 @@ import static org.mockito.Mockito.*;
  * 1. External API call with stubbed response
  * 2. JSON to Markdown conversion accuracy
  * 3. Slack workflow thread posting
- * 4. Exact markdown format validation
+ * 4. Exact Markdown format validation
  */
 @SpringBootTest
 @TestPropertySource(properties = {
-    "external.service.url=http://localhost:8088/api/data",
     "slack.bot-token=xoxb-test-token",
     "slack.signing-secret=test-secret"
 })
@@ -40,7 +42,6 @@ class CompleteWorkflowAccuracyTest {
     private ExternalServiceClient externalServiceClient;
     private MarkdownRenderer markdownRenderer;
     private WireMockServer wireMockServer;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
@@ -48,14 +49,21 @@ class CompleteWorkflowAccuracyTest {
         wireMockServer.start();
         WireMock.configureFor("localhost", 8088);
 
-        externalServiceClient = new ExternalServiceClient();
-        markdownRenderer = new MarkdownRenderer();
-        objectMapper = new ObjectMapper();
+        // Create mock ExternalServiceConfig
+        ExternalServiceConfig mockConfig = new ExternalServiceConfig();
+        ExternalServiceConfig.ServiceDefinition testService = new ExternalServiceConfig.ServiceDefinition();
+        testService.setName("test-service");
+        testService.setUrl("http://localhost:8088/api/data");
+        testService.setDisplayName("Test Service");
+        testService.setTimeout(5000);
+        testService.setRetryAttempts(1);
+        testService.setHeaders(Map.of("Content-Type", "application/json"));
 
-        // Use reflection to set the external service URL
-        org.springframework.test.util.ReflectionTestUtils.setField(
-            externalServiceClient, "externalServiceUrl", "http://localhost:8088/api/data"
-        );
+        mockConfig.setServices(List.of(testService));
+
+        // Create services with proper dependency injection
+        externalServiceClient = new ExternalServiceClient(mockConfig);
+        markdownRenderer = new MarkdownRenderer();
     }
 
     @AfterEach
@@ -64,7 +72,7 @@ class CompleteWorkflowAccuracyTest {
     }
 
     @Test
-    void testCompleteWorkflowMarkdownAccuracy() throws Exception {
+    void testCompleteWorkflowMarkdownAccuracy() {
         // Arrange - Define the exact external service response
         String externalServiceResponse = """
             {
@@ -102,8 +110,8 @@ class CompleteWorkflowAccuracyTest {
         // Mock Slack service to capture the markdown
         doNothing().when(slackService).postThreadResponse(anyString(), anyString(), anyString());
 
-        // Act - Execute the complete workflow
-        JsonNode fetchedData = externalServiceClient.fetchData().block();
+        // Act - Execute the complete workflow using the new config-driven approach
+        JsonNode fetchedData = externalServiceClient.fetchFromService("test-service").block();
         assertNotNull(fetchedData, "External service should return data");
 
         String actualMarkdown = markdownRenderer.renderJsonToMarkdown(fetchedData);
@@ -113,7 +121,7 @@ class CompleteWorkflowAccuracyTest {
         String threadTs = "1234567890.123456";
         slackService.postThreadResponse(channel, threadTs, actualMarkdown);
 
-        // Assert - Verify exact markdown format
+        // Assert - Verify exact Markdown format
         assertEquals(expectedMarkdown.trim(), actualMarkdown.trim(),
             "Markdown should match expected format exactly");
 
@@ -150,7 +158,7 @@ class CompleteWorkflowAccuracyTest {
     }
 
     @Test
-    void testComplexNestedJsonWorkflow() throws Exception {
+    void testComplexNestedJsonWorkflow() {
         String complexJsonResponse = """
             {
               "workflow": {
@@ -177,8 +185,10 @@ class CompleteWorkflowAccuracyTest {
                         .withHeader("Content-Type", "application/json")
                         .withBody(complexJsonResponse)));
 
-        // Execute workflow
-        JsonNode fetchedData = externalServiceClient.fetchData().block();
+        // Execute workflow using new config-driven approach
+        JsonNode fetchedData = externalServiceClient.fetchFromService("test-service").block();
+        assertNotNull(fetchedData, "Should fetch data successfully");
+
         String markdown = markdownRenderer.renderJsonToMarkdown(fetchedData);
 
         // Verify complex structure is rendered correctly
@@ -217,14 +227,16 @@ class CompleteWorkflowAccuracyTest {
     }
 
     @Test
-    void testErrorResponseWorkflow() throws Exception {
+    void testErrorResponseWorkflow() {
         // Test error response handling
         stubFor(get(urlEqualTo("/api/data"))
                 .willReturn(aResponse()
                         .withStatus(500)
                         .withBody("Service Unavailable")));
 
-        JsonNode errorResponse = externalServiceClient.fetchData().block();
+        JsonNode errorResponse = externalServiceClient.fetchFromService("test-service").block();
+        assertNotNull(errorResponse, "Should return error response");
+
         String errorMarkdown = markdownRenderer.renderJsonToMarkdown(errorResponse);
 
         // Verify error response is properly formatted
