@@ -11,6 +11,7 @@ A config-driven Spring Boot application that integrates with Slack workflows and
 - **Docker Ready**: Complete Docker Compose setup with WireMock for testing
 - **Markdown Rendering**: Converts JSON responses to formatted Slack messages
 - **Error Handling**: Graceful degradation and retry mechanisms
+- **Java 21 Ready**: Built with modern Java 21 features and syntax
 
 ## 🏗️ Architecture
 
@@ -122,10 +123,23 @@ external:
   }
   ```
 
+- **`POST /api/workflow/trigger`** - Legacy endpoint for backward compatibility
+  ```json
+  {
+    "channel": "C1234567890",
+    "threadTs": "1234567890.123456"
+  }
+  ```
+
+### Slack Integration
+
+- **`POST /slack/events`** - Handles Slack events (app mentions, URL verification)
+- **`POST /slack/commands`** - Handles Slack slash commands (`/ping`, `/workflow`)
+
 ### Service Management
 
 - **`GET /api/workflow/services`** - List all configured services
-- **`GET /actuator/health`** - Application health check
+- **`GET /health`** - Application health check
 
 ## 🧪 Testing with WireMock
 
@@ -182,7 +196,8 @@ curl -X POST http://localhost:8080/api/workflow/execute \
 ├── src/main/java/org/mveeprojects/
 │   ├── config/
 │   │   ├── ExternalServiceConfig.java      # YAML config binding
-│   │   └── SlackConfig.java               # Slack configuration
+│   │   ├── SlackConfig.java               # Slack client configuration
+│   │   └── SlackProperties.java           # Slack properties binding
 │   ├── controller/
 │   │   ├── HealthController.java          # Health checks
 │   │   ├── SlackEventController.java      # Slack event handling
@@ -192,6 +207,12 @@ curl -X POST http://localhost:8080/api/workflow/execute \
 │       ├── MarkdownRenderer.java          # JSON to Markdown conversion
 │       ├── SlackService.java              # Slack API integration
 │       └── SlackWorkflowService.java      # Main workflow orchestration
+├── src/test/java/org/mveeprojects/        # Comprehensive test suite
+│   ├── contract/                          # API contract tests
+│   ├── integration/                       # End-to-end integration tests
+│   ├── performance/                       # Performance and load tests
+│   ├── security/                          # Security validation tests
+│   └── smoke/                             # Basic smoke tests
 ├── wiremock/                              # Mock API definitions
 │   ├── primary-api/mappings/
 │   └── secondary-api/mappings/
@@ -201,22 +222,67 @@ curl -X POST http://localhost:8080/api/workflow/execute \
 
 ## 🛠️ Technologies Used
 
-- **Java 21** - Latest LTS Java version
+- **Java 21** - Latest LTS Java version with modern syntax
 - **Spring Boot 3.x** - Application framework
 - **Spring WebFlux** - Reactive web client for external APIs
-- **Slack Bolt** - Slack integration framework
-- **Docker & Docker Compose** - Containerization
-- **WireMock** - API mocking for testing
-- **Gradle** - Build automation
+- **Slack API Client** - Direct Slack API integration (simplified approach)
+- **Jackson** - JSON processing and data binding
+- **Docker & Docker Compose** - Containerization and orchestration
+- **WireMock** - API mocking for comprehensive testing
+- **Gradle** - Build automation and dependency management
+- **JUnit 5** - Testing framework with comprehensive test categories
 
-## 📝 Contributing
+## 🧪 Testing
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+The application includes a comprehensive test suite with multiple categories:
 
-## 📄 License
+- **Unit Tests** - Individual component testing
+- **Integration Tests** - Complete workflow validation
+- **Contract Tests** - External API compatibility validation
+- **Performance Tests** - Load testing and performance validation
+- **Security Tests** - Authentication and security validation
+- **Edge Case Tests** - Boundary condition and error scenario testing
+- **Smoke Tests** - Basic application health and startup testing
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Run tests with:
+```bash
+# All tests
+./gradlew test
+
+# Specific test categories
+./gradlew test --tests="*IntegrationTest"
+./gradlew test --tests="*PerformanceTest"
+./gradlew test --tests="*ContractTest"
+
+# With coverage report
+./gradlew test jacocoTestReport
+```
+
+## 🚀 Slack App Setup
+
+### Required Slack App Permissions
+
+Your Slack app needs the following OAuth scopes:
+
+**Bot Token Scopes:**
+- `chat:write` - Send messages
+- `chat:write.public` - Send messages to channels the app isn't in
+- `app_mentions:read` - Listen for mentions
+- `commands` - Handle slash commands
+
+**Event Subscriptions:**
+- `app_mention` - React to @mentions
+- `message.channels` - Listen to channel messages (optional)
+
+### Slash Commands Setup
+
+Configure these slash commands in your Slack app:
+- **`/ping`** - Health check command
+  - Request URL: `https://your-app.com/slack/commands`
+- **`/workflow`** - Show available workflow endpoints
+  - Request URL: `https://your-app.com/slack/commands`
+
+### Event Subscriptions Setup
+
+Set your Request URL to: `https://your-app.com/slack/events`
+
