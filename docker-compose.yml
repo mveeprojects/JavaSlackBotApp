@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  slack-bot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - EXTERNAL_SERVICE_PRIMARY_URL=http://primary-api-mock:8080/api/primary
+      - EXTERNAL_SERVICE_SECONDARY_URL=http://secondary-api-mock:8080/api/secondary
+      - PRIMARY_API_TOKEN=mock-primary-token-123
+      - SECONDARY_API_KEY=mock-secondary-key-456
+    depends_on:
+      - primary-api-mock
+      - secondary-api-mock
+    networks:
+      - slack-bot-network
+
+  primary-api-mock:
+    image: wiremock/wiremock:2.35.0
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./wiremock/primary-api:/home/wiremock
+    command: ["--global-response-templating", "--verbose"]
+    networks:
+      - slack-bot-network
+
+  secondary-api-mock:
+    image: wiremock/wiremock:2.35.0
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./wiremock/secondary-api:/home/wiremock
+    command: ["--global-response-templating", "--verbose"]
+    networks:
+      - slack-bot-network
+
+networks:
+  slack-bot-network:
+    driver: bridge

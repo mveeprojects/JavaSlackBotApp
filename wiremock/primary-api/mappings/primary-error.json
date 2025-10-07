@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/primary/error",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .*"
+      }
+    }
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": true,
+      "message": "Internal server error in primary service",
+      "timestamp": "{{now format='yyyy-MM-dd HH:mm:ss'}}",
+      "request_id": "{{randomValue type='UUID'}}"
+    }
+  }
+}
+

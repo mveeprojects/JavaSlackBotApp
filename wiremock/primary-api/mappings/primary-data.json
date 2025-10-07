@@ -1,0 +1,42 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/primary",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "service": "Primary Data Service",
+      "timestamp": "{{now format='yyyy-MM-dd HH:mm:ss'}}",
+      "data": {
+        "users": {
+          "total": 1543,
+          "active": 1205,
+          "new_today": 23
+        },
+        "metrics": {
+          "response_time": "125ms",
+          "uptime": "99.8%",
+          "requests_per_minute": 342
+        },
+        "status": "healthy",
+        "version": "1.2.3",
+        "environment": "production"
+      },
+      "metadata": {
+        "generated_by": "Primary API Mock",
+        "request_id": "{{randomValue type='UUID'}}",
+        "processing_time": "{{randomValue type='DECIMAL' min='10' max='200'}}ms"
+      }
+    }
+  }
+}
+

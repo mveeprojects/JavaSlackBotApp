@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/secondary/slow",
+    "headers": {
+      "X-API-Key": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "service": "Secondary Analytics Service (Slow Response)",
+      "message": "This endpoint simulates a slow response",
+      "timestamp": "{{now format='yyyy-MM-dd HH:mm:ss'}}",
+      "data": {
+        "simple_metric": "slow_response_test"
+      }
+    },
+    "fixedDelayMilliseconds": 10000
+  }
+}
+

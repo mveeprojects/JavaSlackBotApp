@@ -1,0 +1,30 @@
+slack:
+  bot-token: ${SLACK_BOT_TOKEN:}
+  signing-secret: ${SLACK_SIGNING_SECRET:}
+
+server:
+  port: 8080
+
+external:
+  services:
+    - name: "primary-api"
+      url: ${EXTERNAL_SERVICE_PRIMARY_URL:http://localhost:8081/api/primary}
+      display-name: "Primary Data Service"
+      timeout: 5000
+      retry-attempts: 3
+      headers:
+        Authorization: "Bearer ${PRIMARY_API_TOKEN:}"
+        Content-Type: "application/json"
+    - name: "secondary-api"
+      url: ${EXTERNAL_SERVICE_SECONDARY_URL:http://localhost:8082/api/secondary}
+      display-name: "Secondary Analytics Service"
+      timeout: 8000
+      retry-attempts: 2
+      headers:
+        X-API-Key: "${SECONDARY_API_KEY:}"
+        Content-Type: "application/json"
+
+logging:
+  level:
+    com.slack.api: DEBUG
+    org.mveeprojects: DEBUG

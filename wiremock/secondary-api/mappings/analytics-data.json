@@ -1,0 +1,60 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/secondary",
+    "headers": {
+      "X-API-Key": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "service": "Secondary Analytics Service",
+      "timestamp": "{{now format='yyyy-MM-dd HH:mm:ss'}}",
+      "analytics": {
+        "page_views": {
+          "today": 15678,
+          "this_week": 98234,
+          "this_month": 456789
+        },
+        "user_engagement": {
+          "bounce_rate": "32.5%",
+          "session_duration": "4m 23s",
+          "pages_per_session": 3.2
+        },
+        "conversion_metrics": {
+          "conversion_rate": "2.8%",
+          "total_conversions": 87,
+          "revenue": "$12,450.00"
+        },
+        "traffic_sources": {
+          "organic": "45%",
+          "direct": "28%",
+          "social": "15%",
+          "paid": "12%"
+        }
+      },
+      "alerts": [
+        {
+          "type": "info",
+          "message": "Traffic spike detected in organic search"
+        },
+        {
+          "type": "warning",
+          "message": "Conversion rate below target for mobile users"
+        }
+      ],
+      "metadata": {
+        "generated_by": "Analytics API Mock",
+        "request_id": "{{randomValue type='UUID'}}",
+        "data_freshness": "{{randomValue type='DECIMAL' min='1' max='5'}} minutes ago"
+      }
+    }
+  }
+}
+

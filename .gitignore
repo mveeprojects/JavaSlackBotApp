@@ -1,0 +1,7 @@
+.idea
+.bsp
+.gradle
+target
+build
+out
+*.iml

@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/secondary/timeout",
+    "headers": {
+      "X-API-Key": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 408,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": true,
+      "message": "Request timeout",
+      "timestamp": "{{now format='yyyy-MM-dd HH:mm:ss'}}",
+      "code": "TIMEOUT_ERROR"
+    },
+    "fixedDelayMilliseconds": 15000
+  }
+}
+
